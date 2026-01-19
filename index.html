@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historia Interactiva: Madera Laminada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3e8;
+            color: #2d3748;
+            overflow-x: hidden;
+        }
+        
+        h1, h2, h3, .serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .wood-texture {
+            background-color: #f7f3e8;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(33,40%,90%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(33,40%,85%,1) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.4;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Línea de tiempo */
+        .timeline-container {
+            position: relative;
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 100%;
+            background: #e2dccf;
+            z-index: 0;
+            border-radius: 99px;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            background: linear-gradient(to bottom, #8b5a2b, #b22222, #2f4f4f);
+            z-index: 1;
+            top: 0;
+            height: 0%;
+            border-radius: 99px;
+            transition: height 0.1s linear;
+        }
+
+        @media (max-width: 768px) {
+            .timeline-line, .timeline-progress {
+                left: 24px;
+            }
+        }
+
+        /* Secciones */
+        .timeline-section {
+            position: relative;
+            z-index: 2;
+            /* Padding generoso para facilitar la detección del scroll */
+            padding-top: 8rem; 
+            padding-bottom: 8rem;
+        }
+
+        .reveal-item {
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        .reveal-item.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Tarjetas */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.15);
+            border-color: #8b5a2b;
+        }
+
+        /* Marcadores centrales */
+        .timeline-node {
+            transition: all 0.5s ease;
+            transform: scale(1);
+            z-index: 10;
+            position: relative;
+        }
+        
+        .reveal-item.active .timeline-node {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Navegación Lateral */
+        .side-nav {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(255,255,255,0.6);
+            padding: 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .nav-dot {
+            width: 14px;
+            height: 14px;
+            background: #cbd5e0;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            display: block; 
+            border: 2px solid transparent;
+        }
+
+        .nav-dot:hover::after {
+            content: attr(data-year);
+            position: absolute;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .nav-dot.active {
+            background: #8b5a2b;
+            transform: scale(1.3);
+            border-color: #fff;
+            box-shadow: 0 0 0 2px #8b5a2b;
+        }
+
+        /* MODAL (Expansión) */
+        #info-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(44, 24, 16, 0.9);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
+            padding: 20px;
+        }
+
+        #info-modal.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #fdfbf7;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            border-radius: 1rem;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (min-width: 768px) {
+            .modal-content {
+                flex-direction: row;
+                height: 600px; 
+            }
+        }
+
+        #info-modal.open .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-content::-webkit-scrollbar { width: 8px; }
+        .modal-content::-webkit-scrollbar-track { background: #f1f1f1; }
+        .modal-content::-webkit-scrollbar-thumb { background: #8b5a2b; border-radius: 4px; }
+
+        @media (max-width: 1024px) {
+            .side-nav { display: none; }
+        }
+    </style>
+</head>
+<body class="wood-texture min-h-screen relative">
+    
+    <div class="noise-overlay"></div>
+
+    <!-- Navegación Lateral -->
+    <nav class="side-nav">
+        <a href="#section-1561" class="nav-dot" data-id="section-1561" data-year="1561 - Renacimiento"></a>
+        <a href="#section-1906" class="nav-dot" data-id="section-1906" data-year="1906 - Hetzer"></a>
+        <a href="#section-1935" class="nav-dot" data-id="section-1935" data-year="1935 - Aalto"></a>
+        <a href="#section-1942" class="nav-dot" data-id="section-1942" data-year="1942 - Química"></a>
+        <a href="#section-1975" class="nav-dot" data-id="section-1975" data-year="1975 - Otto"></a>
+        <a href="#section-1996" class="nav-dot" data-id="section-1996" data-year="1996 - CLT"></a>
+        <a href="#section-2010" class="nav-dot" data-id="section-2010" data-year="2010 - Digital"></a>
+        <a href="#section-hoy" class="nav-dot" data-id="section-hoy" data-year="Hoy - Mass Timber"></a>
+    </nav>
+
+    <!-- Modal de Expansión -->
+    <div id="info-modal">
+        <div class="modal-content relative">
+            <button id="close-modal" class="absolute top-4 right-4 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 z-50 transition-colors shadow-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div id="modal-body" class="contents">
+                <!-- El contenido dinámico se inyectará aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Hero -->
+    <header class="relative z-10 h-screen flex items-center justify-center text-center px-4 overflow-hidden">
+        <div class="max-w-4xl mx-auto reveal-item active">
+            <span class="inline-block py-1 px-3 rounded-full bg-[#8b5a2b]/10 text-[#8b5a2b] font-bold tracking-[0.2em] text-xs uppercase mb-6 border border-[#8b5a2b]/20">Linea De Tiempo</span>
+            <h1 class="text-5xl md:text-8xl font-bold mb-6 text-[#2c1810] leading-none tracking-tight">Madera <br><span class="italic text-[#8b5a2b]">Laminada</span></h1>
+            <p class="text-xl md:text-2xl font-light text-gray-600 max-w-2xl mx-auto leading-relaxed mb-12">
+                Un viaje desde los ensamblajes del Renacimiento hasta los rascacielos contemporáneos.
+            </p>
+            <div class="animate-bounce">
+                <a href="#section-1561" class="text-[#8b5a2b] opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center gap-2">
+                    <span class="text-xs uppercase tracking-widest">Comenzar Recorrido</span>
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 pb-20 relative z-10 timeline-container">
+        
+        <!-- Línea central y Progreso -->
+        <div class="timeline-line"></div>
+        <div class="timeline-progress" id="progress-bar"></div>
+
+        <!-- ==============================================
+             EVENTO: 1561
+             ============================================== -->
+        <div id="section-1561" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#8b5a2b] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">XVI</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pl-12">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-1561')">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#8b5a2b] bg-[#8b5a2b]/10 rounded-full">1561</span>
+                        <span class="text-xs text-gray-400 uppercase tracking-widest">Renacimiento</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/1/14/Philibert_de_l%E2%80%99Orme_-_L%E2%80%99All%C3%A9gorie_du_bon_architecte_02.jpg" 
+                             alt="Ilustración Tratado" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">Los Antecedentes</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify line-clamp-3">
+                        El arquitecto <strong>Philibert de l'Orme</strong> publica <em>"Nouvelles inventions pour bien bastir"</em>. Propone unir pequeñas piezas mediante clavijas, el abuelo conceptual del laminado.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#8b5a2b] mb-4">El Tratado de la "Buena Construcción"</h4>
+                        <p class="mb-4">Philibert de l'Orme (1514-1570), arquitecto del rey Enrique II de Francia, se enfrentó a un problema común en su época: la escasez y el alto costo de las vigas de madera de gran longitud y grosor. Su solución fue revolucionaria para el siglo XVI.</p>
+                        <p class="mb-4">Ideó un sistema conocido como <strong>"Petits Bois"</strong> (Maderas Pequeñas). En lugar de buscar un árbol gigante para una viga, ensamblaba muchas tablas pequeñas de madera usando clavijas y cuñas de madera dura, sin adhesivos químicos. </p>
+                        <p class="mb-4">Esto permitía crear arcos y cubiertas de grandes luces (como en el Castillo de la Muette) de manera económica. Aunque técnicamente no es "laminado encolado" (porque no usaba pegamento), estableció el principio fundamental de la ingeniería de la madera: <em>superar las limitaciones naturales del árbol mediante el ensamblaje inteligente de piezas menores.</em></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 1906
+             ============================================== -->
+        <div id="section-1906" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row-reverse group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#a0522d] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">1906</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pr-12 text-left md:text-right">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-1906')">
+                    <div class="flex justify-between items-start mb-4 flex-row-reverse md:flex-row">
+                        <span class="text-xs text-gray-400 uppercase tracking-widest hidden md:inline">Alemania</span>
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#a0522d] bg-[#a0522d]/10 rounded-full">1906</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://www.svenskttra.se/siteassets/1-trafakta/4-om-limtra/hetzers-patent_uppriktad-bild_endast-patentet.jpg?width=980&rmode=min" 
+                             alt="Patente Hetzer" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">La Patente Hetzer</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify md:text-right">
+                        <strong>Otto Hetzer</strong> patenta el uso de caseína y presión. Nace el <em>Glulam</em> industrial, permitiendo por primera vez vigas curvas estables.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#a0522d] mb-4">Patente Imperial Alemana No. 197773</h4>
+                        <p class="mb-4">El 22 de junio de 1906 marca el nacimiento oficial de la madera laminada moderna (Glulam). Otto Hetzer, un maestro carpintero de Weimar, registró su método para fabricar componentes de construcción curvos hechos de láminas de madera encoladas.</p>
+                        <p class="mb-4">El secreto de Hetzer fue el uso de <strong>caseína</strong> (un pegamento derivado de la proteína de la leche) combinado con prensas mecánicas para unir tablas finas. Esto permitió, por primera vez, crear elementos estructurales que no se deformaban con los cambios de humedad de la misma manera que la madera maciza.</p>
+                        <p class="mb-4">Su sistema, conocido comercialmente como "Hetzer Binder", se usó masivamente para construir estaciones de tren (como la de Zúrich), pabellones de exposiciones y fábricas. Fue el primer paso para industrializar la madera.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 1935
+             ============================================== -->
+        <div id="section-1935" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#cd853f] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">30s</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pl-12">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-1935')">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#cd853f] bg-[#cd853f]/10 rounded-full">1935</span>
+                        <span class="text-xs text-gray-400 uppercase tracking-widest">Finlandia</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://www.borisalbornoz.com/wp-content/uploads/2017/08/5.-Biblioteca-Viipuri-Aalto.jpg" 
+                             alt="Aalto Viipuri" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">Humanismo y Curvatura</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify">
+                        <strong>Alvar Aalto</strong> suaviza el modernismo. En la <em>Biblioteca de Viipuri</em>, el techo ondulado de madera no es solo estructura, es acústica y calidez.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#cd853f] mb-4">El Salto del Mueble al Edificio</h4>
+                        <p class="mb-4">Alvar Aalto comenzó experimentando con el curvado de la madera (contrachapado de abedul) en sus diseños de mobiliario, como la icónica silla Paimio (1931-1932). Buscaba una alternativa cálida y "humana" al frío tubo de acero cromado de la Bauhaus alemana.</p>
+                        <p class="mb-4">En la <strong>Biblioteca de Viipuri</strong> (1927-1935), Aalto llevó esta lógica a la escala arquitectónica. El famoso techo del salón de conferencias está formado por una serie de ondas de madera.</p>
+                        <p class="mb-4">Este diseño no era meramente decorativo. Aalto calculó la curvatura para distribuir el sonido de manera uniforme a todos los oyentes, demostrando que la madera laminada podía resolver problemas técnicos complejos (acústica) mientras aportaba una cualidad psicológica de confort, definiendo el "Modernismo Orgánico".</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 1942
+             ============================================== -->
+        <div id="section-1942" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row-reverse group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#556b2f] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">1942</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pr-12 text-left md:text-right">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-1942')">
+                    <div class="flex justify-between items-start mb-4 flex-row-reverse md:flex-row">
+                        <span class="text-xs text-gray-400 uppercase tracking-widest hidden md:inline">Tecnología</span>
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#556b2f] bg-[#556b2f]/10 rounded-full">1942</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://pcladhesives.nz/wp-content/uploads/2019/11/IMG_20191219_090115-scaled.jpg" 
+                             alt="Resorcinol Glue" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">La Revolución Sintética</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify md:text-right">
+                        La llegada del pegamento de <strong>resorcinol</strong> impermeable permite sacar la madera al exterior. Puentes y hangares ahora son posibles.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#556b2f] mb-4">El Adhesivo Indestructible</h4>
+                        <p class="mb-4">Hasta los años 40, la madera laminada tenía una debilidad fatal: la caseína no era totalmente resistente al agua. Esto limitaba su uso a interiores secos. La Segunda Guerra Mundial cambió todo con la necesidad de construir barcos (dragaminas) y hangares rápidamente sin usar acero.</p>
+                        <p class="mb-4">Se desarrollaron los adhesivos sintéticos de <strong>fenol-resorcinol</strong> y <strong>melamina</strong>. Estos pegamentos crean un enlace químico irreversible que es completamente impermeable y resistente a bacterias y hongos.</p>
+                        <p class="mb-4">Gracias a este avance químico invisible, la madera laminada pudo salir al exterior. Permitió la construcción de puentes vehiculares, estructuras marinas y grandes estadios expuestos a la lluvia y la nieve sin riesgo de delaminación, convirtiendo a la madera en un material de ingeniería civil real.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 1975
+             ============================================== -->
+        <div id="section-1975" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#6b8e23] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">1975</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pl-12">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-1975')">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#6b8e23] bg-[#6b8e23]/10 rounded-full">1975</span>
+                        <span class="text-xs text-gray-400 uppercase tracking-widest">Alemania</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://www.baunetz.de/img/2/0/3/0/8/6/2/f254448fcca39f14.jpeg" 
+                             alt="Gridshell Mannheim" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">Ingeniería Orgánica</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify">
+                        <strong>Frei Otto</strong> diseña la <em>Multihalle en Mannheim</em>. Una "Gridshell" (concha reticular) de listones finos. Logra luces enormes con material mínimo.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#6b8e23] mb-4">La Malla que se Convirtió en Concha</h4>
+                        <p class="mb-4">Frei Otto, famoso por sus cubiertas tensadas (como el Estadio de Múnich), aplicó sus principios de ligereza a la madera en la Multihalle de Mannheim. Creó una estructura tipo <strong>Gridshell</strong> (cáscara de rejilla).</p>
+                        <p class="mb-4">El proceso constructivo fue fascinante: se ensambló una malla plana de listones muy delgados de madera de Hemlock en el suelo. Luego, mediante andamios y grúas, la malla se "empujó" hacia arriba en puntos específicos.</p>
+                        <p class="mb-4">La flexibilidad de la madera permitió que la malla plana se deformara elásticamente hasta alcanzar una forma tridimensional compleja y rígida de doble curvatura. Es el antecedente directo de la arquitectura paramétrica actual, lograda entonces con modelos físicos de cadenas colgantes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 1996
+             ============================================== -->
+        <div id="section-1996" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row-reverse group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#b22222] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">90s</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pr-12 text-left md:text-right">
+                <div class="glass-card p-8 rounded-2xl relative border-l-4 md:border-l-0 md:border-r-4 border-[#b22222]" onclick="openModal('section-1996')">
+                    <div class="flex justify-between items-start mb-4 flex-row-reverse md:flex-row">
+                        <span class="text-xs text-gray-400 uppercase tracking-widest hidden md:inline">Austria</span>
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#b22222] bg-[#b22222]/10 rounded-full">1996</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://images.adsttc.com/media/images/5d4b/4d6e/284d/d154/4b00/0008/medium_jpg/39309537250_7e143fa5cf_b.jpg?1565216106" 
+                             alt="CLT Panels" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">El Nacimiento del CLT</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify md:text-right">
+                        Cambio de paradigma: De vigas a <strong>Muros Sólidos</strong>. El <em>Cross Laminated Timber</em> permite competir estructuralmente con el hormigón.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#b22222] mb-4">De "Palito" a "Panel"</h4>
+                        <p class="mb-4">Hasta los años 90, construir en madera significaba crear un esqueleto (vigas y columnas). La investigación de Gerhard Schickhofer en la Universidad de Graz (Austria) lo cambió todo al estandarizar el <strong>Cross Laminated Timber (CLT)</strong>.</p>
+                        <p class="mb-4">La innovación es simple pero poderosa: encolar capas de tablas de madera giradas 90 grados unas respecto a otras. Esta disposición "cruzada" bloquea el movimiento natural de la madera (contracción/dilatación), resultando en un panel dimensionalmente estable.</p>
+                        <p class="mb-4">Esto permitió tratar a la madera como si fuera un muro de hormigón prefabricado. Ahora se podían construir edificios enteros usando paneles macizos para muros y losas, acelerando drásticamente los tiempos de obra y permitiendo edificios de media altura.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: 2010
+             ============================================== -->
+        <div id="section-2010" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#4682b4] shadow-xl w-14 h-14 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-1 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">2010</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pl-12">
+                <div class="glass-card p-8 rounded-2xl relative" onclick="openModal('section-2010')">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="inline-block px-3 py-1 text-xs font-bold tracking-wider text-[#4682b4] bg-[#4682b4]/10 rounded-full">2010</span>
+                        <span class="text-xs text-gray-400 uppercase tracking-widest">Francia / Japón</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-lg transition-all">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://www.clave.com.ec/wp-content/uploads/2018/06/Centre-Pompidou-de-Metz-Foto-Ebrosa-Promotora.jpg" 
+                             alt="Pompidou Metz" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white font-semibold border border-white px-4 py-2 rounded-full backdrop-blur-sm">Ver Historia Completa +</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold text-gray-900 serif mb-3">Artesanía Digital</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed text-justify">
+                        <strong>Shigeru Ban</strong> fusiona software paramétrico y robots CNC en el <em>Pompidou-Metz</em>. Un tejido de madera hexagonal complejo.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#4682b4] mb-4">Tejiendo Madera con Robots</h4>
+                        <p class="mb-4">El Centro Pompidou-Metz es el ejemplo cumbre de la unión entre artesanía tradicional y tecnología digital. Shigeru Ban se inspiró en un sombrero chino de bambú tejido para diseñar la cubierta ondulada.</p>
+                        <p class="mb-4">La geometría era tan compleja (curvas en múltiples direcciones) que era imposible de calcular o fabricar a mano. Se usó software de diseño paramétrico para modelar la estructura hexagonal.</p>
+                        <p class="mb-4">Los datos se enviaron directamente a robots de corte por control numérico (CNC). Estas máquinas cortaron kilómetros de vigas de madera laminada con precisión milimétrica para que encajaran perfectamente en obra, demostrando que la madera laminada es el material ideal para la era de la fabricación digital.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             EVENTO: HOY
+             ============================================== -->
+        <div id="section-hoy" class="timeline-section flex justify-between items-center w-full flex-col md:flex-row-reverse group reveal-item">
+            <div class="order-1 w-full md:w-5/12 pointer-events-none"></div>
+            
+            <div class="timeline-node flex items-center order-1 bg-[#2f4f4f] shadow-xl w-16 h-16 rounded-full justify-center absolute left-0 md:static md:left-auto transform md:translate-x-0 translate-x-0 border-4 border-[#f7f3e8]">
+                <span class="text-white font-bold text-xs">HOY</span>
+            </div>
+
+            <div class="order-1 w-full md:w-5/12 px-6 pl-20 md:pr-12 text-left md:text-right">
+                <div class="glass-card p-10 rounded-2xl relative border-t-4 border-[#2f4f4f]" onclick="openModal('section-hoy')">
+                    <div class="flex justify-between items-start mb-4 flex-row-reverse md:flex-row">
+                        <span class="text-xs text-gray-400 uppercase tracking-widest hidden md:inline">Global</span>
+                        <span class="inline-block px-4 py-1 text-xs font-bold tracking-wider text-white bg-[#2f4f4f] rounded-full shadow-lg">ACTUALIDAD</span>
+                    </div>
+                    
+                    <div class="img-zoom-container bg-gray-200 aspect-video mb-6 shadow-inner relative group-hover:shadow-2xl transition-shadow duration-500">
+                        <!-- [CAMBIAR IMAGEN AQUI] -->
+                        <img src="https://images.adsttc.com/media/images/5e54/36a0/6ee6/7e4e/7800/00cf/newsletter/Mj%C3%B8st%C3%A5rnet_13_Woodify.jpg?1582577300" 
+                             alt="Mjøstårnet" class="img-zoom w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-[#2f4f4f]/80 to-transparent flex flex-col justify-end p-6 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                             <span class="text-white font-bold mb-1">Ver Historia Completa +</span>
+                             <span class="text-gray-200 text-xs">Altura: 85.4 metros</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-3xl font-bold text-gray-900 serif mb-3">La Era Mass Timber</h3>
+                    <p class="text-gray-600 text-base leading-relaxed text-justify md:text-right font-medium">
+                        Rascacielos que limpian el aire. El enfoque cambia de la forma a la <strong>Huella de Carbono</strong>. La madera es el único material que secuestra CO2.
+                    </p>
+
+                    <div class="hidden-details hidden">
+                        <h4 class="text-xl font-bold text-[#2f4f4f] mb-4">Los "Plyscrapers" y la Sostenibilidad</h4>
+                        <p class="mb-4">Hoy vivimos el auge del "Mass Timber" (Madera Masiva). Edificios como el <strong>Mjøstårnet</strong> en Noruega (85.4 metros) prueban que ya no hay límites de altura técnica. La madera laminada encolada (GLT) se usa para las columnas gigantes y el CLT para los pisos y núcleos de ascensores.</p>
+                        <p class="mb-4">El motor de este cambio ya no es solo estético, sino climático. El hormigón y el acero son responsables de un gran porcentaje de las emisiones globales de CO2. La madera, por el contrario, almacena el carbono que el árbol absorbió durante su vida.</p>
+                        <p class="mb-4">Además, se han roto mitos sobre el fuego. Las secciones masivas de madera son extremadamente seguras porque se carbonizan lentamente desde el exterior (formando una capa protectora de carbón), manteniendo su integridad estructural interior más tiempo que el acero expuesto al calor intenso.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#2c1810] text-[#a67c52] py-20 text-center mt-20 relative z-10">
+        <div class="max-w-4xl mx-auto px-4">
+            <h4 class="text-white text-2xl font-serif mb-8 italic">Evolución Continua</h4>
+            <div class="flex flex-wrap justify-center gap-4 text-xs md:text-sm text-[#e0d4c5] opacity-80 mb-8 font-mono">
+                <span class="border border-[#a67c52] px-3 py-1 rounded">Artesanal</span> 
+                <span class="text-gray-500">&rarr;</span> 
+                <span class="border border-[#a67c52] px-3 py-1 rounded">Industrial</span> 
+                <span class="text-gray-500">&rarr;</span> 
+                <span class="border border-[#a67c52] px-3 py-1 rounded">Químico</span> 
+                <span class="text-gray-500">&rarr;</span> 
+                <span class="border border-[#a67c52] px-3 py-1 rounded">Digital</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script Lógica -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const progressLine = document.getElementById('progress-bar');
+            const sections = document.querySelectorAll('.reveal-item'); // Cambiado a sections para claridad lógica
+            const navDots = document.querySelectorAll('.nav-dot');
+            let isClicking = false; // Flag para evitar conflicto scroll-click
+            
+            // 1. ANIMACIÓN DE ENTRADA (Solo visual)
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, { threshold: 0.1 }); // Se activa apenas se ve un poco
+
+            sections.forEach(item => revealObserver.observe(item));
+
+            // 2. FUNCIÓN DE SCROLL SPY MANUAL (Más robusta que IntersectionObserver)
+            function updateActiveSection() {
+                if(isClicking) return; // Si el usuario hizo clic, no calculamos nada hasta que termine el scroll
+
+                const scrollPosition = window.scrollY;
+                const windowHeight = window.innerHeight;
+                // Punto de detección: 1/3 superior de la pantalla (donde el usuario suele mirar)
+                const triggerPoint = scrollPosition + (windowHeight / 3); 
+
+                let currentSectionId = '';
+
+                // Encontrar qué sección contiene el punto de detección
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionBottom = sectionTop + section.offsetHeight;
+
+                    if (triggerPoint >= sectionTop && triggerPoint < sectionBottom) {
+                        currentSectionId = section.id;
+                    }
+                });
+
+                // Si estamos muy cerca del final, forzar el último
+                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) {
+                    currentSectionId = 'section-hoy';
+                }
+
+                // Actualizar UI
+                navDots.forEach(dot => {
+                    dot.classList.remove('active');
+                    if (dot.getAttribute('data-id') === currentSectionId) {
+                        dot.classList.add('active');
+                    }
+                });
+
+                // Barra de progreso
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (scrollPosition / height) * 100;
+                progressLine.style.height = scrolled + "%";
+            }
+
+            window.addEventListener('scroll', updateActiveSection);
+            
+            // 3. EVENTO CLIC EN PUNTOS (Forzado directo)
+            navDots.forEach(dot => {
+                dot.addEventListener('click', function(e) {
+                    // Actualizar visualmente inmediatamente
+                    navDots.forEach(d => d.classList.remove('active'));
+                    this.classList.add('active');
+
+                    // Bloquear momentáneamente el detector de scroll para evitar parpadeo
+                    isClicking = true;
+                    setTimeout(() => { isClicking = false; }, 1000); // 1s de gracia para que termine el scroll suave
+                });
+            });
+
+        });
+
+        // === LOGICA DEL MODAL ===
+        const modal = document.getElementById('info-modal');
+        const modalBody = document.getElementById('modal-body');
+        const closeModalBtn = document.getElementById('close-modal');
+
+        // Función global para abrir modal desde el onclick HTML
+        window.openModal = function(sectionId) {
+            const container = document.getElementById(sectionId);
+            if (!container) return;
+
+            const card = container.querySelector('.glass-card');
+            const imgSrc = card.querySelector('img').src;
+            const title = card.querySelector('h3').innerText;
+            const hiddenContent = card.querySelector('.hidden-details').innerHTML;
+            const yearBadge = card.querySelector('.inline-block').innerText; 
+
+            // Plantilla del Modal con diseño mejorado
+            const modalContentHTML = `
+                <div class="w-full md:w-5/12 h-64 md:h-full bg-gray-200 relative overflow-hidden flex-shrink-0">
+                    <img src="${imgSrc}" class="w-full h-full object-cover absolute inset-0 transform hover:scale-105 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                    <div class="absolute bottom-4 left-4 text-white">
+                        <span class="text-xs font-bold uppercase tracking-widest border border-white/50 px-2 py-1 rounded backdrop-blur-sm">Ilustración</span>
+                    </div>
+                </div>
+                <div class="w-full md:w-7/12 p-8 md:p-10 bg-[#fdfbf7] overflow-y-auto">
+                    <div class="flex items-center gap-3 mb-6">
+                         <span class="text-sm font-bold tracking-widest text-white bg-[#8b5a2b] px-3 py-1 rounded-full shadow-sm">${yearBadge}</span>
+                         <div class="h-px bg-[#e2dccf] flex-grow"></div>
+                    </div>
+                    
+                    <h2 class="text-3xl md:text-4xl font-serif font-bold text-[#2c1810] mb-6 leading-tight">${title}</h2>
+                    
+                    <div class="text-gray-700 text-sm md:text-base leading-relaxed space-y-4 font-light text-justify">
+                        ${hiddenContent}
+                    </div>
+                </div>
+            `;
+
+            modalBody.innerHTML = modalContentHTML;
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.remove('open');
+            document.body.style.overflow = 'auto';
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('open');
+                document.body.style.overflow = 'auto';
+            }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('open')) {
+                modal.classList.remove('open');
+                document.body.style.overflow = 'auto';
+            }
+        });
+    </script>
+</body>
+</html>
